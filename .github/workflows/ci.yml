@@ -1,0 +1,47 @@
+name: SGLang-MLU CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+jobs:
+  lint-and-test:
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        python-version: ["3.9", "3.10", "3.11", "3.12"]
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -e ".[dev]"
+
+      - name: Lint with ruff
+        run: |
+          ruff check src/sglang_mlu tests/
+
+      - name: Type check with mypy (non-blocking)
+        continue-on-error: true
+        run: |
+          mypy src/sglang_mlu --ignore-missing-imports
+
+      - name: Test with pytest
+        run: |
+          python -m pytest tests/ -v --tb=short --junitxml=test-results.xml
+
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-results-${{ matrix.python-version }}
+          path: test-results.xml
